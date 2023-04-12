@@ -30,7 +30,7 @@ if (!class_exists('RestfulTemplateWithVue')) {
             // Register REST API endpoints
             add_action('rest_api_init', array($this, 'register_flashcard_api'));
             // Shortcode to display a frontend widget
-            add_shortcode('private-flashcard', array($this, 'display_flashcard'));
+            add_shortcode('flashcard', array($this, 'display_flashcard'));
             // Enqueue scripts and styles
             add_action('wp_enqueue_scripts', array($this, 'enqueue'));
         }
