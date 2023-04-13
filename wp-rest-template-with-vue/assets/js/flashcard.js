@@ -2,32 +2,31 @@
     document.addEventListener("DOMContentLoaded", onReady);
     function onReady() {
         const NOUNCE = document.getElementById("wp_rest_nonce").value;
-        const { createApp } = Vue;
+        const { createApp, ref, computed, watch } = Vue;
         const app = createApp({
-            data() {
-                return {
-                    flashcards: [],
-                    formOpen: false,
-                    formType: "Add",
-                    selectedItem: {},
+            setup() {
+                const flashcards = ref([]);
+                const formOpen = ref(false);
+                const formType = ref("Add");
+                const selectedItem = ref({});
+
+                const addForm = () => {
+                    formType.value = "Add";
+                    formOpen.value = true;
                 };
-            },
-            methods: {
-                addForm() {
-                    this.formType = "Add";
-                    this.formOpen = true;
-                },
-                editForm(flashcard_id) {
-                    this.formType = "Edit";
-                    this.formOpen = true;
-                    this.selectedItem = flashcard_id;
-                },
-                hideForm() {
-                    this.formOpen = false;
-                    this.selectedItem = {};
-                },
-                loadFlashcards() {
-                    fetch("http://domain.name/flashcard/v1/list", {
+
+                const editForm = (flashcard) => {
+                    formType.value = "Edit";
+                    formOpen.value = true;
+                    selectedItem.value = flashcard;
+                };
+
+                const hideForm = () => {
+                    formOpen.value = false;
+                    selectedItem.value = {};
+                };
+                const loadFlashcards = () => {
+                    fetch("http://scholarly.local/wp-json/flashcard/v1/list", {
                         headers: {
                             "Content-Type": "application/json",
                             "X-WP-Nonce": NOUNCE,
@@ -35,34 +34,55 @@
                     })
                         .then((response) => response.json())
                         .then((data) => {
-                            this.flashcards = data;
+                            flashcards.value = data;
                         })
-                        .catch((error) => {
-                            console.error(error);
+                        .catch((err) => {
+                            console.error(err);
                         });
-                },
-                addFlashcard({ flashcard_id, question, answer }) {
-                    let results = this.flashcards;
+                };
+
+                const addFlashcard = ({ flashcard_id, question, answer }) => {
+                    let results = flashcards.value;
                     let newFlashcard = { flashcard_id, question, answer };
                     results.push(newFlashcard);
-                    this.flashcards = results;
-                },
-                updateFlashcard({ flashcard_id, question, answer }) {
-                    let results = this.flashcards;
+                    flashcards.value = results;
+                };
+
+                const updateFlashcard = ({
+                    flashcard_id,
+                    question,
+                    answer,
+                }) => {
+                    let results = flashcards.value;
                     const updatedFlashcard = { flashcard_id, question, answer };
                     const flashcardIndex = results.findIndex(
                         (item) => item.flashcard_id === flashcard_id
                     );
                     results[flashcardIndex] = updatedFlashcard;
-                    this.flashcards = results;
-                },
-                deleteFlashcard(flashcard_id) {
-                    let results = this.flashcards;
+                    flashcards.value = results;
+                };
+
+                const deleteFlashcard = (flashcard_id) => {
+                    let results = flashcards.value;
                     results = results.filter(
                         (item) => item.flashcard_id !== flashcard_id
                     );
-                    this.flashcards = results;
-                },
+                    flashcards.value = results;
+                };
+
+                return {
+                    flashcards,
+                    formOpen,
+                    formType,
+                    selectedItem,
+                    addForm,
+                    editForm,
+                    hideForm,
+                    loadFlashcards,
+                    addFlashcard,
+                    updateFlashcard,
+                    deleteFlashcard,
+                };
             },
             mounted() {
                 this.loadFlashcards();
@@ -137,70 +157,70 @@
             </div>`,
             props: ["open", "formtype", "selecteditem"],
             emits: ["close", "on-add", "on-update"],
-            data() {
-                return {
-                    enteredQuestion: "",
-                    enteredAnswer: "",
-                    error: "",
-                };
-            },
-            watch: {
-                selecteditem() {
-                    this.enteredQuestion = this.selecteditem.question;
-                    this.enteredAnswer = this.selecteditem.answer;
-                },
-            },
-            methods: {
-                submitForm() {
-                    this.error = "";
+            setup(props, { emit }) {
+                const enteredQuestion = ref("");
+                const enteredAnswer = ref("");
+                const error = ref("");
+                watch(props, (_, newProps) => {
+                    enteredQuestion.value = newProps.selecteditem.question;
+                    enteredAnswer.value = newProps.selecteditem.answer;
+                });
+
+                const submitForm = () => {
+                    error.value = "";
                     if (
-                        this.enteredQuestion === "" ||
-                        this.enteredAnswer === ""
+                        enteredQuestion.value === "" ||
+                        enteredAnswer.value === ""
                     ) {
-                        this.error = "Input fields cannot be empty!";
+                        error.value = "Input fields cannot be empty!";
                         return;
                     }
-                    if (this.formtype === "Add") {
-                        this.addFlashcard();
-                    } else if (this.formtype === "Edit") {
-                        this.updateFlashcard();
+                    if (props.formtype === "Add") {
+                        addFlashcard();
+                    } else if (props.formtype === "Edit") {
+                        updateFlashcard();
                     } else {
-                        this.error = "Invalid form type!";
+                        error.value = "Invalid form type!";
                         return;
                     }
-                },
-                addFlashcard() {
-                    fetch("http://doamin.name/wp-json/flashcard/v1/create", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "X-WP-Nonce": NOUNCE,
-                        },
-                        body: JSON.stringify({
-                            question: this.enteredQuestion,
-                            answer: this.enteredAnswer,
-                        }),
-                    })
+                };
+
+                const addFlashcard = () => {
+                    fetch(
+                        "http://scholarly.local/wp-json/flashcard/v1/create",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "X-WP-Nonce": NOUNCE,
+                            },
+                            body: JSON.stringify({
+                                question: enteredQuestion.value,
+                                answer: enteredAnswer.value,
+                            }),
+                        }
+                    )
                         .then((response) => response.json())
                         .then((data) => {
                             alert(`${data.message}`);
-                            this.$emit("on-add", {
+                            emit("on-add", {
                                 flashcard_id: data.data.flashcard_id,
                                 question: data.data.question,
                                 answer: data.data.answer,
                             });
-                            this.enteredQuestion = "";
-                            this.enteredAnswer = "";
-                            this.error = "";
-                            this.$emit("close");
+                            enteredQuestion.value = "";
+                            enteredAnswer.value = "";
+                            error.value = "";
+                            emit("close");
                         })
-                        .catch((error) => {
-                            this.error = error;
+                        .catch((err) => {
+                            error.value = err;
                         });
-                },
-                updateFlashcard() {
+                };
+
+                const updateFlashcard = () => {
                     fetch(
-                        `http://doamin.name/wp-json/flashcard/v1/update/${this.selecteditem.flashcard_id}`,
+                        `http://scholarly.local/wp-json/flashcard/v1/update/${props.selecteditem.flashcard_id}`,
                         {
                             method: "PUT",
                             headers: {
@@ -208,27 +228,36 @@
                                 "X-WP-Nonce": NOUNCE,
                             },
                             body: JSON.stringify({
-                                question: this.enteredQuestion,
-                                answer: this.enteredAnswer,
+                                question: enteredQuestion.value,
+                                answer: enteredAnswer.value,
                             }),
                         }
                     )
                         .then((response) => response.json())
                         .then((data) => {
                             alert(`${data.message}`);
-                            this.$emit("on-update", {
+                            emit("on-update", {
                                 flashcard_id: data.data.flashcard_id,
                                 question: data.data.question,
                                 answer: data.data.answer,
                             });
-                            this.enteredQuestion = "";
-                            this.enteredAnswer = "";
-                            this.$emit("close");
+                            enteredQuestion.value = "";
+                            enteredAnswer.value = "";
+                            emit("close");
                         })
-                        .catch((error) => {
-                            this.error = error;
+                        .catch((err) => {
+                            error.value = err;
                         });
-                },
+                };
+
+                return {
+                    enteredQuestion,
+                    enteredAnswer,
+                    error,
+                    submitForm,
+                    addFlashcard,
+                    updateFlashcard,
+                };
             },
         });
 
@@ -244,26 +273,21 @@
             </div></base-card></li>`,
             props: ["flashcard_id", "question", "answer"],
             emits: ["update-form", "delete-flashcard"],
-            data() {
-                return {
-                    status: false,
+            setup(props, { emit }) {
+                const status = ref(false);
+                const showOrHide = computed(() =>
+                    status.value ? "Hide Answer" : "Show Answer"
+                );
+
+                const toggleAnswer = () => (status.value = !status.value);
+
+                const displayUpdateForm = () => {
+                    emit("update-form");
                 };
-            },
-            computed: {
-                showOrHide() {
-                    return this.toggle ? "Hide Answer" : "Show Answer";
-                },
-            },
-            methods: {
-                toggleAnswer() {
-                    this.status = !this.status;
-                },
-                displayUpdateForm() {
-                    this.$emit("update-form");
-                },
-                deleteFlashcard(flashcard_id) {
+
+                const deleteFlashcard = () => {
                     fetch(
-                        `http://doamin.name/wp-json/flashcard/v1/delete/${flashcard_id}`,
+                        `http://scholarly.local/wp-json/flashcard/v1/delete/${props.flashcard_id}`,
                         {
                             method: "DELETE",
                             headers: {
@@ -275,13 +299,21 @@
                         .then((response) => response.json())
                         .then((data) => {
                             alert(`${data.message}`);
-                            this.$emit("delete-flashcard");
+                            emit("delete-flashcard");
                         })
-                        .catch((error) => {
-                            alert(error);
-                            console.log(error);
+                        .catch((err) => {
+                            alert(err);
+                            console.log(err);
                         });
-                },
+                };
+
+                return {
+                    status,
+                    showOrHide,
+                    toggleAnswer,
+                    displayUpdateForm,
+                    deleteFlashcard,
+                };
             },
         });
 
